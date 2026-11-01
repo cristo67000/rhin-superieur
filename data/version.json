@@ -1,0 +1,56 @@
+{
+ "paquets": {
+  "fond": {
+   "nom": "Fond de carte Bas-Rhin et Bade",
+   "taille": 243291170,
+   "taille_morceau": 48000000,
+   "morceaux": [
+    "data/fond/fond.000",
+    "data/fond/fond.001",
+    "data/fond/fond.002",
+    "data/fond/fond.003",
+    "data/fond/fond.004",
+    "data/fond/fond.005"
+   ],
+   "sha256": "a3ed1d715d71209dac58ab0aefa0e9ec921f564626d8e89fca8086879d8134ab",
+   "zoom_min": 0,
+   "zoom_max": 15,
+   "tuiles": 27312,
+   "osm": "2026-10-31",
+   "source": "Protomaps 20261031"
+  },
+  "contexte": {
+   "nom": "Contexte Europe",
+   "taille": 6210153,
+   "taille_morceau": 48000000,
+   "morceaux": [
+    "data/contexte/contexte.000"
+   ],
+   "sha256": "de98e3c07cffdb200b7ecf3c1c958e30be4a0c17e4b536b30b25e4e9194b6c0f",
+   "zoom_min": 0,
+   "zoom_max": 6,
+   "tuiles": 110,
+   "osm": "2026-10-31",
+   "source": "Protomaps 20261031"
+  },
+  "relief": {
+   "nom": "Relief (altitudes)",
+   "type": "raster-dem",
+   "encodage": "terrarium",
+   "format": "webp",
+   "taille": 55339055,
+   "taille_morceau": 48000000,
+   "morceaux": [
+    "data/relief/relief.000",
+    "data/relief/relief.001"
+   ],
+   "sha256": "79214ffd9330e9b27eb2e6aab822a2964e48c231b11760d53ad7d27f1c5e281c",
+   "zoom_min": 0,
+   "zoom_max": 13,
+   "tuiles": 1992,
+   "osm": "2026-11-01",
+   "source": "Terrain Tiles Terrarium (EU-DEM 25 m)"
+  }
+ },
+ "build": "2026-11-01 10:34"
+}

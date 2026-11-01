@@ -1,0 +1,18 @@
+{
+  "name": "Rhin supérieur — carte hors ligne",
+  "short_name": "Rhin supérieur",
+  "description": "Carte détaillée du Bas-Rhin et du pays de Bade (Freiburg → Karlsruhe) utilisable sans réseau : rues, chemins, relief, adresses, lieux personnels et géolocalisation.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#0e7490",
+  "categories": ["navigation", "travel", "utilities"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
