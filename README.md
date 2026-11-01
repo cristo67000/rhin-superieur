@@ -4,6 +4,10 @@ Application web installable (PWA) de navigation et de géolocalisation couvrant 
 **Bas-Rhin** et le **pays de Bade de Freiburg à Karlsruhe**, utilisable **sans réseau**
 une fois les paquets téléchargés.
 
+**En ligne : <https://cristo67000.github.io/rhin-superieur/>** — à ouvrir dans Chrome
+(Android) ou Safari (iPhone), puis « Ajouter à l'écran d'accueil » et bouton « Hors ligne »
+pour télécharger les cartes.
+
 - **Fond de carte très détaillé** (OpenStreetMap via Protomaps, zoom 15) : rues et chemins,
   bâtiments, arrêts de bus et tram, gares, rivières, forêts, frontières, villes et villages.
   Noms locaux ou en français, commerces affichables ou non, bâtiments 3D.
