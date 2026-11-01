@@ -232,6 +232,102 @@ def telecharger_adresses_kreis(nom, poly_txt, poly):
     return texte
 
 
+PBF = [os.path.join(CACHE, "pbf", "freiburg-regbez-latest.osm.pbf"),
+       os.path.join(CACHE, "pbf", "karlsruhe-regbez-latest.osm.pbf")]
+PLACES = ("city", "town", "village", "hamlet", "suburb", "quarter", "neighbourhood")
+
+
+def charger_osm_bade_pbf(col):
+    """Adresses et lieux habités des huit Kreise depuis les extraits Geofabrik (pyosmium).
+
+    Bien plus sûr qu'Overpass (qui rejette les gros Kreise en 502/504) : deux fichiers de
+    ~200 Mo, lus en local. Les bâtiments (ways fermés, multipolygones) donnent le centre de
+    leur anneau extérieur, comme `out center`."""
+    import osmium
+    from shapely.geometry import Point
+    from shapely.ops import unary_union
+    from shapely.prepared import prep
+    from shapely.strtree import STRtree
+
+    polys = [polygone_kreis(nom)[1] for nom in KREISE]
+    prepare = prep(unary_union(polys))
+    lieux = []
+    bruts = []   # (lon, lat, numero, voie, cp, ville)
+
+    class Lecteur(osmium.SimpleHandler):
+        def __init__(self):
+            super().__init__()
+            self.n = 0
+
+        def _adresse(self, lon, lat, t):
+            if not prepare.contains(Point(lon, lat)):
+                return
+            voie = t.get("addr:street") or t.get("addr:place") or ""
+            if not voie:
+                return
+            bruts.append((lon, lat, t.get("addr:housenumber", ""), voie, t.get("addr:postcode", ""), t.get("addr:city", "")))
+
+        def node(self, n):
+            t = n.tags
+            if "addr:housenumber" in t and n.location.valid():
+                self._adresse(n.location.lon, n.location.lat, t)
+            elif "place" in t and "name" in t and t["place"] in PLACES and n.location.valid():
+                if prepare.contains(Point(n.location.lon, n.location.lat)):
+                    try:
+                        pop = int(re.sub(r"[^0-9]", "", t.get("population", "") or "0") or 0)
+                    except ValueError:
+                        pop = 0
+                    lieux.append((t["name"], n.location.lon, n.location.lat, t["place"], pop))
+
+        def area(self, a):
+            t = a.tags
+            if "addr:housenumber" not in t:
+                return
+            try:
+                anneau = next(iter(a.outer_rings()))
+            except StopIteration:
+                return
+            sx = sy = 0.0
+            k = 0
+            for nd in anneau:
+                if nd.location.valid():
+                    sx += nd.location.lon; sy += nd.location.lat; k += 1
+            if k:
+                self._adresse(sx / k, sy / k, t)
+
+    for chemin in PBF:
+        log("  lecture de", os.path.basename(chemin))
+        lecteur = Lecteur()
+        lecteur.apply_file(chemin, locations=True, idx="flex_mem")
+        log(f"    {len(bruts):,} adresses cumulées, {len(lieux):,} lieux")
+
+    vus = {}
+    for l in lieux:
+        cle = (normaliser(l[0]), round(l[1], 2), round(l[2], 2))
+        vus.setdefault(cle, l)
+    lieux = list(vus.values())
+    gros = [l for l in lieux if l[3] in ("city", "town", "village")]
+    arbre = STRtree([Point(l[1], l[2]) for l in gros])
+
+    def commune_proche(lon, lat):
+        i = arbre.nearest(Point(lon, lat))
+        return gros[i][0] if i is not None else ""
+
+    vues = set()
+    n = 0
+    for lon, lat, numero, voie, cp, ville in bruts:
+        if not ville:
+            ville = commune_proche(lon, lat)
+        cle = (normaliser(ville), normaliser(voie), normaliser(numero))
+        if cle in vues:
+            continue
+        vues.add(cle)
+        col.ajouter("DE", ville, cp, voie, numero, lon, lat)
+        n += 1
+    log(f"  OSM Bade (PBF) : {n:,} adresses, {len(lieux):,} lieux habités")
+    return lieux
+
+
 def charger_osm_bade(col):
     from shapely.geometry import Point
     from shapely.strtree import STRtree
@@ -377,7 +473,10 @@ def main():
     log("== BAN Bas-Rhin")
     charger_ban(col)
     log("== OpenStreetMap, pays de Bade")
-    lieux_de = charger_osm_bade(col)
+    if all(os.path.exists(c) and os.path.getsize(c) > 1_000_000 for c in PBF):
+        lieux_de = charger_osm_bade_pbf(col)
+    else:
+        lieux_de = charger_osm_bade(col)
     log("== Écriture")
     ecrire_index(col, lieux_de)
 

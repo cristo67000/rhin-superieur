@@ -50,7 +50,21 @@
    "tuiles": 1992,
    "osm": "2026-11-01",
    "source": "Terrain Tiles Terrarium (EU-DEM 25 m)"
+  },
+  "adresses": {
+   "nom": "Adresses Bas-Rhin et Bade",
+   "type": "index",
+   "taille": 5720423,
+   "taille_morceau": 48000000,
+   "morceaux": [
+    "data/adresses/adresses.000"
+   ],
+   "sha256": "e63ede67bc985d5632df9019c3359281598df26a4488d678ae2925fb1c5e2e51",
+   "adresses": 843897,
+   "rues": 52824,
+   "osm": "2026-11-01",
+   "source": "BAN + OpenStreetMap"
   }
  },
- "build": "2026-11-01 10:34"
+ "build": "2026-11-01 11:06"
 }

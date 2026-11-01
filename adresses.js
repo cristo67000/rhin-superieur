@@ -60,7 +60,12 @@ var Adresses = (function () {
         ruesNorm: null, communesNorm: null, grille: null
       };
       idx.communesNorm = idx.communes.map(function (c) { return normaliser(c[0]); });
-      idx.ruesNorm = idx.rues.map(function (r) { return normaliser(r[0]) + " " + idx.communesNorm[r[1]] + " " + (r[2] || ""); });
+      idx.ruesNomLong = new Uint16Array(idx.rues.length);
+      idx.ruesNorm = idx.rues.map(function (r, i) {
+        var nom = normaliser(r[0]);
+        idx.ruesNomLong[i] = nom.length;
+        return nom + " " + idx.communesNorm[r[1]] + " " + (r[2] || "");
+      });
       idx.grille = new Map();
       idx.rues.forEach(function (r, i) {
         if (r[4] === 0) return;
@@ -100,39 +105,67 @@ var Adresses = (function () {
   }
 
   // ---------- recherche hors ligne ----------
+  /* Le numéro peut être devant (« 12 rue des Vosges Strasbourg »), au milieu
+     (« Hauptstraße 5 Kehl ») ou à la fin ; un nombre précédé de « du », « de »,
+     « am »… appartient au nom (« rue du 22 Novembre »). Les mots restants
+     doivent contenir une lettre. */
+  var TYPES_VOIE = { rue: 1, avenue: 1, boulevard: 1, place: 1, impasse: 1, allee: 1, route: 1, chemin: 1, quai: 1, strasse: 1, weg: 1, platz: 1, gasse: 1 };
+  var ARTICLES_AVANT_NOMBRE = { du: 1, de: 1, la: 1, le: 1, les: 1, des: 1, au: 1, aux: 1, am: 1, an: 1, der: 1, dem: 1, den: 1, zum: 1, zur: 1, im: 1 };
   function analyserRequete(q) {
-    var t = normaliser(q);
-    var numero = 0, suffixe = "";
-    var m = /^(\d{1,5})\s*([a-z]{1,4}|bis|ter|quater)?\s+(.+)$/.exec(t);
-    if (m && !/^(rue|route|avenue|chemin|place|impasse)/.test(m[2] || "")) { numero = +m[1]; suffixe = m[2] || ""; t = m[3]; }
-    else {
-      m = /^(.+?)\s+(\d{1,5})\s*([a-z]{1,2})?$/.exec(t);
-      if (m) { numero = +m[2]; suffixe = m[3] || ""; t = m[1]; }
+    var jetonsBruts = normaliser(q).split(" ").filter(Boolean);
+    var numero = 0, suffixe = "", mots = [];
+    for (var i = 0; i < jetonsBruts.length; i++) {
+      var j = jetonsBruts[i];
+      var m = /^(\d{1,5})(bis|ter|quater|[a-z])?$/.exec(j);
+      if (m && !numero && (i === 0 || !ARTICLES_AVANT_NOMBRE[jetonsBruts[i - 1]])) {
+        numero = +m[1];
+        suffixe = m[2] || "";
+        var suivant = jetonsBruts[i + 1];
+        if (!suffixe && suivant && /^(bis|ter|quater)$/.test(suivant)) { suffixe = suivant; i++; }
+        continue;
+      }
+      mots.push(ABREVIATIONS[j] || j);
     }
-    var mots = t.split(" ").filter(Boolean).map(function (x) { return ABREVIATIONS[x] || x; });
+    mots = mots.filter(function (x) { return /[a-z]/.test(x) || /^\d+$/.test(x); });
     return { numero: numero, suffixe: suffixe, mots: mots };
   }
 
   function chercherHorsLigne(q, max) {
     return charger().then(function (idx) {
       var req = analyserRequete(q);
-      if (!req.mots.length) return [];
-      var candidats = [];
-      for (var i = 0; i < idx.ruesNorm.length && candidats.length < 400; i++) {
-        var s = idx.ruesNorm[i];
-        var ok = true, score = 0;
-        for (var j = 0; j < req.mots.length; j++) {
-          var pos = s.indexOf(req.mots[j]);
-          if (pos === -1) { ok = false; break; }
-          // mot en début de nom de rue : bonus ; mot trouvé en milieu de mot : malus
-          if (pos === 0) score -= 3;
-          else if (s[pos - 1] !== " ") score += 2;
+      if (!req.mots.length || !req.mots.some(function (x) { return /[a-z]/.test(x); })) return [];
+      function collecter(mots) {
+        var candidats = [];
+        for (var i = 0; i < idx.ruesNorm.length && candidats.length < 400; i++) {
+          var s = idx.ruesNorm[i];
+          var ok = true, score = 0, dansLeNom = false;
+          var longueurNom = idx.ruesNomLong[i];
+          for (var j = 0; j < mots.length; j++) {
+            var pos = s.indexOf(mots[j]);
+            if (pos === -1) { ok = false; break; }
+            if (pos < longueurNom) dansLeNom = true;
+            // mot en début de nom de rue : bonus ; mot trouvé en milieu de mot : malus
+            if (pos === 0) score -= 3;
+            else if (s[pos - 1] !== " ") score += 2;
+          }
+          // une requête qui ne touche que la commune (« Lauterbourg ») n'est pas une rue
+          if (!ok || !dansLeNom) continue;
+          var r = idx.rues[i];
+          score += Math.min(r[0].length / 10, 4);
+          if (req.numero && r[4] === 0) score += 5;
+          candidats.push([score, i]);
         }
-        if (!ok) continue;
-        var r = idx.rues[i];
-        score += Math.min(r[0].length / 10, 4);
-        if (req.numero && r[4] === 0) score += 5;
-        candidats.push([score, i]);
+        return candidats;
+      }
+      var candidats = collecter(req.mots);
+      if (!candidats.length) {
+        // « rue des Vosges Strasbourg » n'existe pas (c'est une avenue) : sans le type de voie
+        var sansType = req.mots.filter(function (x) { return !TYPES_VOIE[x]; });
+        if (sansType.length && sansType.length < req.mots.length) candidats = collecter(sansType);
+      }
+      if (!candidats.length && req.mots.length > 1) {
+        // puis sans le dernier mot, souvent la commune : la rue existe peut-être ailleurs
+        candidats = collecter(req.mots.slice(0, -1));
       }
       candidats.sort(function (a, b) { return a[0] - b[0]; });
       var resultats = [];
@@ -305,23 +338,34 @@ var Adresses = (function () {
   Recherche.enregistrer({
     nom: "adresses", priorite: 20,
     chercher: function (q, max) {
+      if (Recherche.analyserCoordonnees(q)) return Promise.resolve([]);
       return installe().then(function (ok) { return ok ? chercherHorsLigne(q, Math.min(max, 6)) : []; });
     }
   });
 
   // ---------- recherche en ligne (Photon, données OSM) ----------
+  /* Photon public : au plus une requête toutes les 1,2 s (au-delà, 429 sans
+     en-tête CORS, que le navigateur rapporte comme une erreur CORS). */
+  var dernierPhoton = 0, minuteriePhoton = null;
   Recherche.enregistrer({
     nom: "en ligne", priorite: 40,
     chercher: function (q, max) {
-      if (!Carte.reglage("enLigne") || !navigator.onLine || normaliser(q).length < 3) return Promise.resolve([]);
+      if (!Carte.reglage("enLigne") || !navigator.onLine || normaliser(q).length < 3 || Recherche.analyserCoordonnees(q)) return Promise.resolve([]);
       if (controleurEnLigne) controleurEnLigne.abort();
       controleurEnLigne = new AbortController();
+      var signal = controleurEnLigne.signal;
       var e = Carte.emprise();
       var bbox = e ? e.bbox.join(",") : "6.9,47.7,8.95,49.35";
       var c = carte.getCenter();
       var url = "https://photon.komoot.io/api/?q=" + encodeURIComponent(q) + "&limit=5&lang=fr&bbox=" + bbox +
                 "&lat=" + c.lat.toFixed(4) + "&lon=" + c.lng.toFixed(4);
-      return fetch(url, { signal: controleurEnLigne.signal }).then(function (r) { return r.ok ? r.json() : { features: [] }; })
+      var attente = Math.max(0, 1200 - (Date.now() - dernierPhoton));
+      clearTimeout(minuteriePhoton);
+      return new Promise(function (resolve) { minuteriePhoton = setTimeout(resolve, attente); }).then(function () {
+        if (signal.aborted) return { features: [] };
+        dernierPhoton = Date.now();
+        return fetch(url, { signal: signal }).then(function (r) { return r.ok ? r.json() : { features: [] }; });
+      })
         .then(function (gj) {
           return (gj.features || []).map(function (f) {
             var p = f.properties || {};

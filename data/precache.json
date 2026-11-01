@@ -1,5 +1,5 @@
 {
- "build": "2026-11-01-1034",
+ "build": "2026-11-01-1106",
  "fichiers": [
   "index.html",
   "style.css",
@@ -19,6 +19,7 @@
   "pwa.js",
   "data/emprise.json",
   "data/version.json",
+  "data/communes.json",
   "lib/basemaps.js",
   "lib/maplibre-gl.css",
   "lib/maplibre-gl.js",

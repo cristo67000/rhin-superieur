@@ -89,33 +89,42 @@ var Recherche = (function () {
     fournisseurs.sort(function (a, b) { return (a.priorite || 50) - (b.priorite || 50); });
   }
 
-  function chercher(requete, maximum) {
+  /* onPartiel(resultats) est rappelé à chaque fournisseur qui répond : les
+     résultats locaux s'affichent sans attendre la recherche en ligne. */
+  function chercher(requete, maximum, onPartiel) {
     var q = requete.trim();
-    var resultats = [];
+    var base = [];
     var coord = analyserCoordonnees(q);
     if (coord) {
-      resultats.push({
+      base.push({
         libelle: formaterCoordonnees(coord.lat, coord.lon),
         detail: formaterDms(coord.lat, coord.lon),
-        type: "coordonnées", lon: coord.lon, lat: coord.lat, zoom: 16
+        type: "coordonnées", lon: coord.lon, lat: coord.lat, zoom: 16, score: 0
       });
     }
-    if (normaliser(q).length < 2) return Promise.resolve(resultats);
-    return Promise.all(fournisseurs.map(function (f) {
-      return Promise.resolve().then(function () { return f.chercher(q, maximum || 8); })
-        .catch(function (e) { console.warn("recherche " + f.nom + " :", e); return []; });
-    })).then(function (listes) {
-      listes.forEach(function (l, i) {
-        (l || []).forEach(function (e) {
+    if (normaliser(q).length < 2) return Promise.resolve(base);
+    var parFournisseur = fournisseurs.map(function () { return []; });
+    function assembler() {
+      var resultats = base.slice();
+      parFournisseur.forEach(function (l, i) {
+        l.forEach(function (e) {
           if (e.score === undefined) e.score = fournisseurs[i].priorite || 50;
           resultats.push(e);
         });
       });
       // tri stable par score (un fournisseur peut se placer devant quand la requête lui ressemble)
-      resultats = resultats.map(function (e, i) { return [e.score === undefined ? -1 : e.score, i, e]; })
-        .sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; }).map(function (t) { return t[2]; });
-      return resultats.slice(0, maximum || 10);
-    });
+      return resultats.map(function (e, i) { return [e.score, i, e]; })
+        .sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; }).map(function (t) { return t[2]; })
+        .slice(0, maximum || 10);
+    }
+    return Promise.all(fournisseurs.map(function (f, i) {
+      return Promise.resolve().then(function () { return f.chercher(q, maximum || 8); })
+        .catch(function (e) { console.warn("recherche " + f.nom + " :", e); return []; })
+        .then(function (l) {
+          parFournisseur[i] = l || [];
+          if (onPartiel && parFournisseur[i].length) onPartiel(assembler());
+        });
+    })).then(assembler);
   }
 
   // ---------- interface ----------
@@ -215,7 +224,9 @@ var Recherche = (function () {
     var q = champ.value;
     if (normaliser(q).length < 2 && !analyserCoordonnees(q)) { fermer(); return; }
     var mien = ++jeton;
-    chercher(q, 10).then(function (r) {
+    chercher(q, 10, function (partiels) {
+      if (mien === jeton) afficher(partiels);
+    }).then(function (r) {
       if (mien !== jeton) return;
       afficher(r);
     });

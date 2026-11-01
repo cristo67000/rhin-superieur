@@ -16,7 +16,7 @@ et le calcul d'itinéraires (Valhalla/OSRM publics).
 | `fond` | Fond vectoriel Protomaps (OpenStreetMap) zoom 0 → 15 sur l'emprise | 243 Mo, 6 morceaux | `build/tuiles.py` (`pmtiles extract --region`) |
 | `contexte` | Europe zoom 0 → 6, pour le dézoom | 6 Mo | idem |
 | `relief` | Altitudes Terrarium (EU-DEM 25 m) zoom 0 → 13, WebP sans perte, précision 25 cm | 55 Mo, 2 morceaux | `build/relief.py` |
-| `adresses` | Index BAN (Bas-Rhin) + OSM (Bade) : rues, numéros, communes | ~20 Mo | `build/adresses.py` |
+| `adresses` | Index BAN (Bas-Rhin, 339 090 adresses) + OSM (Bade, 504 807) : 843 897 adresses, 52 824 rues, 1 070 communes | 5,7 Mo gzip (14 Mo bruts) | `build/adresses.py` |
 
 L'emprise (`build/emprise.py` → `build/emprise.geojson`, `data/emprise.json`) est l'union
 des limites réelles du département 67 et des huit Kreise badois (Stadtkreis Freiburg,
@@ -105,4 +105,15 @@ servie par le service worker, 1 822 entités rendues, 1 237 courbes, ombrage vis
   donne les noms locaux (`coalesce(name:xx, name)`), les pays restent forcés en français.
 - Terrarium : quantifier le canal bleu (1/256 m) à 64 près divise le poids par trois sans
   effet visible ; WebP sans perte gagne encore un tiers (96 Ko → 19 Ko par tuile).
-- Overpass en sortie CSV (`out center`) pèse dix fois moins que le JSON pour les adresses.
+- Overpass en sortie CSV (`out center`) pèse dix fois moins que le JSON pour les adresses —
+  mais les serveurs publics rejettent un Kreis entier (502/504) et restent lents même par
+  cellules de 0,2°. **Retenu : les extraits PBF de Geofabrik lus par pyosmium**
+  (`charger_osm_bade_pbf`, deux fichiers de ~160 Mo, deux minutes) ; Overpass n'est plus
+  qu'un repli si les PBF manquent dans `build/cache/pbf/`.
+- Recherche d'adresses : le numéro peut être devant (France) ou au milieu (Allemagne), un
+  nombre précédé d'un article appartient au nom (« rue du 22 Novembre ») ; si rien ne
+  correspond, réessayer sans le type de voie puis sans la commune (« rue des Vosges
+  Strasbourg » → avenue des Vosges). Photon public : une requête toutes les 1,2 s, sinon
+  429 sans en-tête CORS ; les résultats locaux s'affichent sans l'attendre.
+- Les Releases GitHub ne renvoient pas d'en-tête CORS : les données vivent dans le dépôt
+  Pages, en morceaux de 48 Mo.

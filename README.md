@@ -30,7 +30,7 @@ Tout reste sur l'appareil : aucun compte, aucune télémétrie.
 |---|---|---|
 | Fond de carte | ≈ 250 Mo | tuiles vectorielles zoom 0 → 15 + Europe dézoomée |
 | Relief | ≈ 55 Mo | altitudes (EU-DEM 25 m) zoom 0 → 13 |
-| Adresses | ≈ 20 Mo | ~1,3 million d'adresses, rues et communes |
+| Adresses | ≈ 6 Mo | 843 897 adresses, 52 824 rues, 1 070 communes |
 
 ## Développement
 
@@ -41,7 +41,9 @@ pour PMTiles) :
 python build/serveur.py 8160
 ```
 
-Reconstruction des données (Python 3.11, `shapely`, `numpy`, `Pillow`, `build/pmtiles.exe`) :
+Reconstruction des données (Python 3.11, `shapely`, `numpy`, `Pillow`, `osmium`,
+`build/pmtiles.exe` à télécharger depuis les versions de go-pmtiles, et les extraits
+Geofabrik `freiburg-regbez` et `karlsruhe-regbez` dans `build/cache/pbf/`) :
 
 ```bash
 python build/emprise.py      # limites administratives → emprise
