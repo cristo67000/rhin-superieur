@@ -213,6 +213,24 @@ def charger_ban(col):
             n += 1
     log(f"  BAN 67 : {n:,} adresses")
 
+def telecharger_adresses_kreis(nom, poly_txt, poly):
+    """CSV Overpass des adresses d'un Kreis, cellule par cellule s'il est grand (cache)."""
+    slug = re.sub(r"[^a-z]+", "-", normaliser(nom))
+    parties = morceaux_polygone(poly)
+    if len(parties) == 1:
+        req = ('[out:csv(::lat,::lon,"addr:housenumber","addr:street","addr:place","addr:postcode","addr:city";false;"\t")]'
+               '[timeout:600];'
+               f'nwr["addr:housenumber"](poly:"{poly_txt}");out center qt;')
+        return overpass(req, f"adresses-{slug}.tsv")
+    log(f"  {nom} : {len(parties)} cellules")
+    texte = ""
+    for i, partie in enumerate(parties):
+        req = ('[out:csv(::lat,::lon,"addr:housenumber","addr:street","addr:place","addr:postcode","addr:city";false;"\t")]'
+               '[timeout:600];'
+               f'nwr["addr:housenumber"](poly:"{texte_poly(partie)}");out center qt;')
+        texte += overpass(req, f"adresses-{slug}-{i:02d}.tsv") + "\n"
+    return texte
+
 
 def charger_osm_bade(col):
     from shapely.geometry import Point
@@ -252,20 +270,7 @@ def charger_osm_bade(col):
     for nom in KREISE:
         poly_txt, poly = polygone_kreis(nom)
         slug = re.sub(r"[^a-z]+", "-", normaliser(nom))
-        parties = morceaux_polygone(poly)
-        texte = ""
-        if len(parties) == 1:
-            req = ('[out:csv(::lat,::lon,"addr:housenumber","addr:street","addr:place","addr:postcode","addr:city";false;"\t")]'
-                   '[timeout:600];'
-                   f'nwr["addr:housenumber"](poly:"{poly_txt}");out center qt;')
-            texte = overpass(req, f"adresses-{slug}.tsv")
-        else:
-            log(f"  {nom} : {len(parties)} cellules")
-            for i, partie in enumerate(parties):
-                req = ('[out:csv(::lat,::lon,"addr:housenumber","addr:street","addr:place","addr:postcode","addr:city";false;"\t")]'
-                       '[timeout:600];'
-                       f'nwr["addr:housenumber"](poly:"{texte_poly(partie)}");out center qt;')
-                texte += overpass(req, f"adresses-{slug}-{i:02d}.tsv") + "\n"
+        texte = telecharger_adresses_kreis(nom, poly_txt, poly)
         n = 0
         for ligne in csv.reader(io.StringIO(texte), delimiter="\t"):
             if len(ligne) < 7:
@@ -360,6 +365,14 @@ def ecrire_index(col, lieux_de):
 
 
 def main():
+    if len(sys.argv) > 2 and sys.argv[1] == "--prefetch":
+        # Téléchargement anticipé par un second processus (miroirs dans l'autre ordre)
+        MIROIRS.reverse()
+        for nom in sys.argv[2].split(","):
+            poly_txt, poly = polygone_kreis(nom.strip())
+            telecharger_adresses_kreis(nom.strip(), poly_txt, poly)
+        log("prefetch terminé")
+        return
     col = Collecte()
     log("== BAN Bas-Rhin")
     charger_ban(col)
