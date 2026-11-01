@@ -34,7 +34,7 @@ répartit la plage sur les morceaux et lit :
 
 - **hors ligne** : fichiers de l'OPFS (Origin Private File System), écrits par le worker
   `telechargeur.js` (`createSyncAccessHandle`, reprise au byte près après interruption,
-  manifeste écrit en dernier) et lus par `File.slice()` ;
+  manifeste écrit en dernier, marqueur `en-cours.json` pendant le téléchargement) et lus par `File.slice()` ;
 - **sinon** : requêtes HTTP `Range` sur les morceaux publiés (GitHub Pages les sert).
 
 Le Cache Storage est évité pour les gros fichiers (il ne sert pas une plage sans recharger
@@ -127,3 +127,13 @@ servie par le service worker, 1 822 entités rendues, 1 237 courbes, ombrage vis
   retombé à `'initial'` et l'`activate` d'origine effaçait **tous** les caches, le neuf
   compris (constaté ici : il ne restait que `rhin-app-initial`, vide, plus rien hors ligne).
   `activate` passe donc d'abord par `cacheActuel()`, qui retrouve `PREFIXE + BUILD`.
+- **Mise à jour d'un paquet : la reprise ne doit pas réutiliser les morceaux d'une autre
+  version** (défaut trouvé sur Soest le 2026-11-01, corrigé ici à l'identique).
+  `telechargeur.js` reprenait tout morceau déjà présent de la bonne taille ; or les morceaux
+  de 48 Mo d'une nouvelle version ont exactement la même taille que les anciens : l'ancienne
+  archive restait en place sous un manifeste neuf. Désormais un marqueur `en-cours.json`
+  (sha256 visé) est écrit avant le premier octet : un morceau n'est réutilisé que si le
+  marqueur, ou le manifeste complet, porte le même sha256 ; sinon le dossier est vidé.
+  Vérifié ici en remplaçant le paquet Adresses par du bruit sous un faux sha256 (retéléchargé
+  entièrement, en-tête gzip retrouvé, marqueur effacé) et en le tronquant à moitié sous le bon
+  sha256 (reprise par `Range`, somme de contrôle conforme).

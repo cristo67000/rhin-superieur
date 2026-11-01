@@ -13,7 +13,7 @@ const PREFIXE = 'rhin-app-';
    réinstalle un service worker que si son script a changé d'un octet. Sans
    cette ligne, une nouvelle version (nouveau precache.json) resterait
    invisible des appareils déjà installés. */
-const BUILD = '2026-11-01-1655';
+const BUILD = '2026-11-01-1734';
 let APP_CACHE = PREFIXE + 'initial';
 const PAQUETS = /\/data\/(fond|contexte|relief|adresses|numeros)\//;
 
