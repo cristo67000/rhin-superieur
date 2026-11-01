@@ -117,3 +117,13 @@ servie par le service worker, 1 822 entités rendues, 1 237 courbes, ombrage vis
   429 sans en-tête CORS ; les résultats locaux s'affichent sans l'attendre.
 - Les Releases GitHub ne renvoient pas d'en-tête CORS : les données vivent dans le dépôt
   Pages, en morceaux de 48 Mo.
+- Le navigateur ne réinstalle un service worker que si le script `sw.js` a changé d'un octet :
+  un nouveau `precache.json` seul n'est jamais relu, et les appareils installés ne voyaient
+  jamais la version suivante (constaté sur Soest, 2026-11-01). `build/manifeste.py` réécrit
+  donc la ligne `const BUILD = '…';` de `sw.js` à chaque build ; `install` s'en sert aussi de
+  repli si `precache.json` n'a pas de champ `build`.
+- Chrome arrête un service worker inactif après quelques dizaines de secondes, y compris
+  celui qui attend le clic du bandeau : relancé pour `skipWaiting`, son `APP_CACHE` est
+  retombé à `'initial'` et l'`activate` d'origine effaçait **tous** les caches, le neuf
+  compris (constaté ici : il ne restait que `rhin-app-initial`, vide, plus rien hors ligne).
+  `activate` passe donc d'abord par `cacheActuel()`, qui retrouve `PREFIXE + BUILD`.

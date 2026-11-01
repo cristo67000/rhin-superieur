@@ -9,6 +9,11 @@
  * lisent par plages d'octets, ce que le Cache Storage ne sait pas servir.
  */
 const PREFIXE = 'rhin-app-';
+/* Identifiant de build, réécrit par build/manifeste.py : le navigateur ne
+   réinstalle un service worker que si son script a changé d'un octet. Sans
+   cette ligne, une nouvelle version (nouveau precache.json) resterait
+   invisible des appareils déjà installés. */
+const BUILD = '2026-11-01-1655';
 let APP_CACHE = PREFIXE + 'initial';
 const PAQUETS = /\/data\/(fond|contexte|relief|adresses|numeros)\//;
 
@@ -16,7 +21,7 @@ self.addEventListener('install', (e) => {
   e.waitUntil((async () => {
     const reponse = await fetch('data/precache.json', { cache: 'reload' });
     const { build, fichiers } = await reponse.json();
-    APP_CACHE = PREFIXE + build;
+    APP_CACHE = PREFIXE + (build || BUILD);
     const cache = await caches.open(APP_CACHE);
     // `cache: 'reload'` contourne le cache HTTP : sinon addAll() peut figer une
     // version périmée (GitHub Pages sert max-age=600).
@@ -37,6 +42,10 @@ self.addEventListener('message', (e) => {
 
 self.addEventListener('activate', (e) => {
   e.waitUntil((async () => {
+    /* Le worker a pu être arrêté entre install et activate (inactif tant que le
+       bandeau attendait un clic) : APP_CACHE serait retombé à 'initial' et le
+       ménage ci-dessous effacerait aussi le cache qui vient d'être rempli. */
+    await cacheActuel();
     const cles = await caches.keys();
     await Promise.all(cles.filter((k) => k.startsWith(PREFIXE) && k !== APP_CACHE).map((k) => caches.delete(k)));
     await self.clients.claim();
@@ -56,9 +65,10 @@ self.addEventListener('fetch', (e) => {
 
 async function cacheActuel() {
   if (APP_CACHE === PREFIXE + 'initial') {
-    // worker relancé : retrouve le cache du build courant
+    // worker relancé : retrouve le cache de ce build (à défaut, le plus récent)
     const cles = (await caches.keys()).filter((k) => k.startsWith(PREFIXE));
-    if (cles.length) APP_CACHE = cles.sort().pop();
+    if (cles.includes(PREFIXE + BUILD)) APP_CACHE = PREFIXE + BUILD;
+    else if (cles.length) APP_CACHE = cles.sort().pop();
   }
   return caches.open(APP_CACHE);
 }
