@@ -209,6 +209,14 @@ var Carte = (function () {
   carte.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
   carte.addControl(new maplibregl.ScaleControl({ unit: "metric", maxWidth: 120 }), "bottom-left");
 
+  /* L'attribution compacte s'ouvre dépliée au premier rendu et masque les
+     boutons du bas sur téléphone : on la replie après quelques secondes
+     (le bouton ⓘ la rouvre à la demande). */
+  setTimeout(function () {
+    var attrib = document.querySelector(".maplibregl-ctrl-attrib");
+    if (attrib) attrib.classList.remove("maplibregl-compact-show");
+  }, 5000);
+
   /* Sans écouteur « error », MapLibre écrit chaque erreur de tuile dans la
      console ; on filtre les absences attendues (relief hors emprise). */
   carte.on("error", function (ev) {

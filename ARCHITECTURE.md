@@ -74,12 +74,23 @@ Valhalla public (FOSSGIS, instructions en français ; voiture, vélo, piéton), 
 (voiture). Tracé, étapes, suivi guidé (prochaine manœuvre, distance restante, hors itinéraire),
 enregistrement IndexedDB pour rejouer sans réseau, export GPX.
 
+### Mise à jour de l'application (`miseajour.js`, `sw.js`)
+Modèle repris de wortschatz : le service worker n'appelle pas `skipWaiting()` à
+l'installation ; la version suivante attend, un bandeau l'annonce, le clic « Mettre à jour »
+envoie `passer-devant` puis recharge ; revérification au retour à l'écran (15 min) et bouton
+« Rechercher une mise à jour » dans les Réglages. La version active se demande au worker par
+`MessageChannel`.
+
 ## 4. Recette
 
 Le volet Navigateur de l'app de bureau ne composite pas quand il est masqué : la recette
 visuelle passe par Chrome headless piloté en CDP (`scratchpad/recette/cdp.mjs` + scénarios),
 géolocalisation émulée, captures bureau et téléphone. Serveur de développement :
 `python build/serveur.py 8160` (requêtes Range).
+
+Épreuve hors ligne de bout en bout (2026-11-01, `scenario-horsligne.mjs`) : serveur dédié,
+installation des trois paquets dans l'OPFS, arrêt du serveur, rechargement → application
+servie par le service worker, 1 822 entités rendues, 1 237 courbes, ombrage visible.
 
 ## 5. Enseignements techniques
 

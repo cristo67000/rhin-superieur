@@ -135,8 +135,11 @@ var Lieux = (function () {
   carte.on("mouseleave", "lieux-point", function () { carte.getCanvas().style.cursor = ""; });
 
   // ---------- appui long / clic droit ----------
+  var dernierAppuiLong = 0;
   carte.on("contextmenu", function (ev) {
     ev.preventDefault();
+    // Android émet aussi un contextmenu après l'appui long déjà traité
+    if (Date.now() - dernierAppuiLong < 1500) return;
     nouveau({ lon: ev.lngLat.lng, lat: ev.lngLat.lat, source: "carte" });
   });
   (function appuiLong() {
@@ -151,6 +154,7 @@ var Lieux = (function () {
         var rect = carte.getCanvas().getBoundingClientRect();
         var p = carte.unproject([depart.x - rect.left, depart.y - rect.top]);
         annuler();
+        dernierAppuiLong = Date.now();
         if (navigator.vibrate) navigator.vibrate(30);
         nouveau({ lon: p.lng, lat: p.lat, source: "carte" });
       }, 600);
